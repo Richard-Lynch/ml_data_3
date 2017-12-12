@@ -78,7 +78,6 @@ def readlines(filename, **kwargs):
     i = 0
     while True:
         row = f.readline().replace(',', ';')
-        limit = i
         if row == "":
             print("hit limit:", i)
             break
@@ -92,14 +91,14 @@ def readlines(filename, **kwargs):
 
 
 def parsedata(shortFile, length):
-    data = np.loadtxt(
-        shortFile, dtype=float, delimiter=";", usecols=range(1, length - 1))
-    clas = np.loadtxt(shortFile, dtype=str, delimiter=";", usecols=length - 1)
+    data = np.loadtxt(shortFile, dtype=float, delimiter=";")
+    # shortFile, dtype=float, delimiter=";", usecols=range(1, length - 1))
+    # clas = np.loadtxt(shortFile, dtype=str, delimiter=";", usecols=length - 1)
     # features      n*p     [all rows, 1st column to last-1 column]
     X = data[:, 0:-1]
     Y = data[:, -1]  # target        1*p     [all rows, last column]
 
-    classes = np.unique(clas)
+    classes = np.unique([1, 2])
 
     return X, Y, classes  # , class_name2num #, class_num2name
 
@@ -139,42 +138,47 @@ def test_model(alg, X_train, Y_train, X_val, Y_val):
 
 
 if __name__ == "__main__":
-    x, y, classes, features = readlines("squared_winequality-red.csv")
+    # x, y, classes, features = readlines("squared_winequality-red.csv")
+    x, y, classes, features = readlines("squared_winequality-white.csv")
     # x, y, classes, features = readlines("winequality-red.csv")
+    # x, y, classes, features = readlines("winequality-white.csv")
 
-    alg1 = linear_model.LinearRegression()
-    alg2 = svm.SVR()
+    # alg1 = linear_model.LinearRegression()
+    # alg2 = svm.SVR()
     # alg3 = KNeighborsRegressor(n_neighbors=3)
-    alg3 = linear_model.LogisticRegression()
-    # alg4 = RadiusNeighborsRegressor(radius=2.0)
-    alg4 = svm.SVR(kernel='linear')
+    # alg3 = linear_model.LogisticRegression()
+    alg4 = RadiusNeighborsRegressor(radius=2.0)
+    # alg4 = svm.SVR(kernel='linear')
     alg5 = RandomForestRegressor()
 
     x_train = x[:-100]
     y_train = y[:-100]
-    x_val = x[:-10, :]
-    y_val = y[:-10]
+    x_val = x[:-100, :]
+    y_val = y[:-100]
 
+    PX = 0
     PI = []
     i = 0
 
-    Pi = test_model(alg1, x_train, y_train, x_val, y_val)
-    PX = Pi
-    i += 1
+    # Pi = test_model(alg1, x_train, y_train, x_val, y_val)
+    # PX = Pi
+    # i += 1
 
-    Pi = test_model(alg2, x_train, y_train, x_val, y_val)
-    PX += Pi
-    i += 1
+    # Pi = test_model(alg2, x_train, y_train, x_val, y_val)
+    # PX += Pi
+    # i += 1
 
     # Pi = test_model(alg3, x_train, y_train, x_val, y_val)
     # PX += Pi
     # i += 1
 
     Pi = test_model(alg4, x_train, y_train, x_val, y_val)
+    P_rad = Pi
     PX += Pi
     i += 1
 
     Pi = test_model(alg5, x_train, y_train, x_val, y_val)
+    P_for = Pi
     PX += Pi
     i += 1
 
@@ -188,3 +192,8 @@ if __name__ == "__main__":
     print('max', DX.max())
     print('min', DX.min())
     print('rmse', RMSE(PX, y_val))
+
+    print('radius')
+    print(P_rad[10:])
+    print(P_for[10:])
+    print(y_val[10:])

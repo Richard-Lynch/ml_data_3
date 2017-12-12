@@ -40,3 +40,4 @@ def readlines(filename, **kwargs):
 
 if __name__ == "__main__":
     readlines("winequality-red.csv")
+    # readlines("winequality-white.csv")

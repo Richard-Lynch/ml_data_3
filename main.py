@@ -29,6 +29,25 @@ import time
 # from printer import printResults
 
 
+def call_ac(est, X, Y):
+    p = est.predict(X)
+    return ac(p, y)
+
+
+def ac(pr, ta):
+    A = 0
+    size = 0
+    for p, t in zip(pr, ta):
+        A += 1 - (abs(p - t) / 10)
+        size += 1
+    return A / size
+
+
+def call_rmse(est, X, y):
+    p = est.predict(X)
+    return RMSE(p, y)
+
+
 def RMSE(predictions, targets):
     sq_e = 0
     size = 0
@@ -90,6 +109,24 @@ def readlines(filename, **kwargs):
         return None, None, None, None
 
 
+def print_results(filename, delta):
+    with open("results_" + filename, 'w') as fo:
+        for value in delta:
+            print(value)
+            fo.write(str(value) + "\n")
+        # for row in shortFile:
+        #     print('row', row)
+        #     new_row = []
+        #     for value in row:
+        #         print('v', value)
+        #         print(type(value))
+        #         new_row.append(str(float(value)))
+        #         new_row.append(str(float(value)**2))
+        #     del new_row[-1]
+        #     new_row_s = ", ".join(new_row)
+        #     fo.write(new_row_s + '\n')
+
+
 def parsedata(shortFile, length):
     data = np.loadtxt(shortFile, dtype=float, delimiter=";")
     # shortFile, dtype=float, delimiter=";", usecols=range(1, length - 1))
@@ -99,38 +136,50 @@ def parsedata(shortFile, length):
     Y = data[:, -1]  # target        1*p     [all rows, last column]
 
     classes = np.unique([1, 2])
+    print('X')
+    print(X)
+    print('Y')
+    print(Y)
 
     return X, Y, classes  # , class_name2num #, class_num2name
 
 
-def train(model, alg, X, Y):
-    if model is None:
-        if alg is not None:
-            model = alg
-        else:
-            return False
+def train(alg, X, Y):
+    model = alg
+    # print('training:', model)
 
     fit_result = model.fit(X, Y)
     print('fit_result', fit_result)
     return model
 
 
-def predict(model, X, Y):
+def _predict(model, X, Y):
+    # print('predicting:', model)
+    # print('shape x', X.shape)
     P = model.predict(X)
+    np.clip(P, 1, 10, out=P)
     D = []
-    D = abs(P - Y)
+    # print('calcing d')
+    D = P - Y
     return P, D
 
 
-def test_model(alg, X_train, Y_train, X_val, Y_val):
-    model = train(None, alg, X_train, Y_train)
-    P, D = predict(model, X_val, Y_val)
+def test_model(alg, X, Y, X_train, Y_train, X_val, Y_val):
+    model = train(alg, X_train, Y_train)
+    P, D = _predict(model, X_val, Y_val)
 
     print('D')
-    print(D)
-    print('max', D.max())
-    print('min', D.min())
+    DX = D
+    DA = abs(DX)
+    print('Dx')
+    # print(DX[:10])
+    print('max', DX.max())
+    print('min', DX.min())
+    print('max abs', DA.max())
+    print('min abs', DA.min())
     print('rmse', RMSE(P, Y_val))
+    scores = cross_val_score(model, X, Y, cv=5, scoring=call_ac)
+    print("Accuracy: %0.2f (+/- %0.2f)" % (scores.mean(), scores.std() * 2))
 
     # print('P')
     # print(P)
@@ -138,47 +187,63 @@ def test_model(alg, X_train, Y_train, X_val, Y_val):
 
 
 if __name__ == "__main__":
-    # x, y, classes, features = readlines("squared_winequality-red.csv")
-    x, y, classes, features = readlines("squared_winequality-white.csv")
+    filename = "squared_winequality-red.csv"
+    x, y, classes, features = readlines(filename)
+    # x, y, classes, features = readlines("squared_winequality-white.csv")
     # x, y, classes, features = readlines("winequality-red.csv")
     # x, y, classes, features = readlines("winequality-white.csv")
 
-    # alg1 = linear_model.LinearRegression()
-    # alg2 = svm.SVR()
-    # alg3 = KNeighborsRegressor(n_neighbors=3)
-    # alg3 = linear_model.LogisticRegression()
-    alg4 = RadiusNeighborsRegressor(radius=2.0)
-    # alg4 = svm.SVR(kernel='linear')
-    alg5 = RandomForestRegressor()
+    alg1 = linear_model.LinearRegression()
+    alg2 = svm.SVR()
+    alg3 = KNeighborsRegressor(n_neighbors=100)
+    alg4 = RadiusNeighborsRegressor(radius=1000.0)
+    # alg4 = RadiusNeighborsRegressor(radius=10000.0)
+    # alg5 = svm.SVR(kernel='linear')
+    alg6 = RandomForestRegressor()
+    alg7 = linear_model.LogisticRegression()
+    alg8 = linear_model.LinearRegression(normalize=True)
 
-    x_train = x[:-100]
-    y_train = y[:-100]
-    x_val = x[:-100, :]
-    y_val = y[:-100]
+    x_train, x_val, y_train, y_val = train_test_split(
+        x, y, test_size=0.2, random_state=0)
+    print(x_train.shape, y_train.shape)
+    print(x_val.shape, y_val.shape)
+    # x_train = x[:-1000]
+    # y_train = y[:-1000]
+    # x_val = x[-1000:, :]
+    # y_val = y[-1000:]
 
     PX = 0
     PI = []
     i = 0
 
-    # Pi = test_model(alg1, x_train, y_train, x_val, y_val)
-    # PX = Pi
-    # i += 1
+    Pi = test_model(alg1, x, y, x_train, y_train, x_val, y_val)
+    PX = Pi
+    i += 1
 
-    # Pi = test_model(alg2, x_train, y_train, x_val, y_val)
-    # PX += Pi
-    # i += 1
-
-    # Pi = test_model(alg3, x_train, y_train, x_val, y_val)
-    # PX += Pi
-    # i += 1
-
-    Pi = test_model(alg4, x_train, y_train, x_val, y_val)
-    P_rad = Pi
+    Pi = test_model(alg2, x, y, x_train, y_train, x_val, y_val)
     PX += Pi
     i += 1
 
-    Pi = test_model(alg5, x_train, y_train, x_val, y_val)
+    Pi = test_model(alg3, x, y, x_train, y_train, x_val, y_val)
+    PX += Pi
+    i += 1
+
+    # Pi = test_model(alg4, x_train, y_train, x_val, y_val)
+    # P_rad = Pi
+    # PX += Pi
+    # i += 1
+
+    Pi = test_model(alg6, x, y, x_train, y_train, x_val, y_val)
     P_for = Pi
+    PX += Pi
+    i += 1
+
+    Pi = test_model(alg7, x, y, x_train, y_train, x_val, y_val)
+    PX += Pi
+    i += 1
+
+    Pi = test_model(alg8, x, y, x_train, y_train, x_val, y_val)
+    P_lin = Pi
     PX += Pi
     i += 1
 
@@ -186,14 +251,20 @@ if __name__ == "__main__":
     # print('P3')
     # print(P3)
 
-    DX = abs(PX - y_val)
+    DX = PX - y_val
+    DA = abs(PX - y_val)
     print('Dx')
-    print(DX)
+    # print(DX[:10])
     print('max', DX.max())
     print('min', DX.min())
+    print('max abs', DA.max())
+    print('min abs', DA.min())
     print('rmse', RMSE(PX, y_val))
 
-    print('radius')
-    print(P_rad[10:])
-    print(P_for[10:])
-    print(y_val[10:])
+    D_lin = P_lin - y_val
+    print_results(filename, D_lin)
+
+    # print('radius')
+    # print(P_rad[:10])
+    # print(P_for[:10])
+    # print(y_val[:10])

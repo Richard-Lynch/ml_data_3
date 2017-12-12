@@ -12,6 +12,7 @@ from sklearn.model_selection import cross_val_score
 from sklearn.model_selection import KFold
 from sklearn.neighbors import KNeighborsRegressor
 from sklearn.neighbors import RadiusNeighborsRegressor
+from sklearn.ensemble import RandomForestRegressor
 import time
 
 # import tensorflow as tf
@@ -143,7 +144,9 @@ if __name__ == "__main__":
     alg1 = linear_model.LinearRegression()
     alg2 = svm.SVR()
     alg3 = KNeighborsRegressor(n_neighbors=3)
-    alg4 = RadiusNeighborsRegressor(radius=1.0)
+    # alg4 = RadiusNeighborsRegressor(radius=2.0)
+    alg4 = svm.SVR(kernel='linear')
+    alg5 = RandomForestRegressor()
 
     x_train = x[:-100]
     y_train = y[:-100]
@@ -166,6 +169,10 @@ if __name__ == "__main__":
     i += 1
 
     Pi = test_model(alg4, x_train, y_train, x_val, y_val)
+    PX += Pi
+    i += 1
+
+    Pi = test_model(alg5, x_train, y_train, x_val, y_val)
     PX += Pi
     i += 1
 

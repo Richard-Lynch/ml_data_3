@@ -139,11 +139,13 @@ def test_model(alg, X_train, Y_train, X_val, Y_val):
 
 
 if __name__ == "__main__":
-    x, y, classes, features = readlines("winequality-red.csv")
+    x, y, classes, features = readlines("squared_winequality-red.csv")
+    # x, y, classes, features = readlines("winequality-red.csv")
 
     alg1 = linear_model.LinearRegression()
     alg2 = svm.SVR()
-    alg3 = KNeighborsRegressor(n_neighbors=3)
+    # alg3 = KNeighborsRegressor(n_neighbors=3)
+    alg3 = linear_model.LogisticRegression()
     # alg4 = RadiusNeighborsRegressor(radius=2.0)
     alg4 = svm.SVR(kernel='linear')
     alg5 = RandomForestRegressor()
@@ -164,9 +166,9 @@ if __name__ == "__main__":
     PX += Pi
     i += 1
 
-    Pi = test_model(alg3, x_train, y_train, x_val, y_val)
-    PX += Pi
-    i += 1
+    # Pi = test_model(alg3, x_train, y_train, x_val, y_val)
+    # PX += Pi
+    # i += 1
 
     Pi = test_model(alg4, x_train, y_train, x_val, y_val)
     PX += Pi

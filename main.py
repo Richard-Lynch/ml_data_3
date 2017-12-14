@@ -4,19 +4,11 @@ import warnings
 warnings.filterwarnings(
     action="ignore", module="scipy", message="^internal gelsd")
 import numpy as np
-# from math import sqrt
 from sklearn import linear_model
-from sklearn import svm
 from sklearn.model_selection import train_test_split
 from sklearn.model_selection import cross_val_score
-# from sklearn.model_selection import KFold
-# from sklearn.neighbors import KNeighborsRegressor
-# from sklearn.neighbors import KNeighborsClassifier
-# from sklearn.neighbors import RadiusNeighborsRegressor
+from sklearn.model_selection import cross_val_predict
 from sklearn.ensemble import RandomForestRegressor
-
-# from sklearn.ensemble import RandomForestClassifier
-# import time
 
 
 def call_ac(est, X, Y):
@@ -105,7 +97,6 @@ def train(alg, X, Y):
 def _predict(model, X, Y):
     P = model.predict(X)
     np.clip(P, 1, 10, out=P)
-    # D = []
     D = P - Y
     return P, D
 
@@ -116,45 +107,21 @@ def test_model(alg, X, Y, X_train, Y_train, X_val, Y_val):
 
     DX = D
     DA = abs(DX)
-    print('Dx')
-    print('max', DX.max())
-    print('min', DX.min())
-    print('max abs', DA.max())
-    print('min abs', DA.min())
-    print('rmse', RMSE(P, Y_val))
-    scores = cross_val_score(model, X, Y, cv=5, scoring=call_ac)
-    print("Accuracy: %0.2f (+/- %0.2f)" % (scores.mean(), scores.std() * 2))
 
-    return P
+    return DX, DA
 
 
-def test_all(algs, x, y, x_train, y_train, x_val, y_val):
-    PX = 0
-    i = 0
-    Ps = []
-    for alg in algs:
-        Pi = test_model(alg, x, y, x_train, y_train, x_val, y_val)
-        Ps.append(Pi)
-        PX += Pi
-        i += 1
-
-    PX = PX / i
-    DX = PX - y_val
-    DA = abs(PX - y_val)
-    print('D')
-    print('max', DX.max())
-    print('min', DX.min())
-    print('max abs', DA.max())
-    print('min abs', DA.min())
-    print('rmse', RMSE(PX, y_val))
-    # print first 25 vals and the predictions by each model
-    # for i in range(25):
-    # print(y_val[i], + ":" *[p[i] for p in Ps])
-    return
+def test_model_cross(alg, X, Y, X_train, Y_train, X_val, Y_val):
+    P = cross_val_predict(alg, X_val, Y_val, cv=5, n_jobs=-1)
+    DX = P - Y_val
+    DA = abs(DX)
+    return DX, DA
 
 
 def test_set(filename):
+    # test a specific set against both algs, with optimum params
     x, y, classes, features = readlines(filename)
+    # add two algs to be tested
     algs = []
     algs.append(
         linear_model.LinearRegression(
@@ -177,19 +144,26 @@ def test_set(filename):
             random_state=None,
             verbose=0,
             warm_start=False))
-    # algs.append(svm.LinearSVC(dual=False, penalty='l1'))
 
+    # split data
     x_train, x_val, y_train, y_val = train_test_split(x, y, test_size=0.2)
     print(x_train.shape, y_train.shape)
     print(x_val.shape, y_val.shape)
-    for alg in algs:
+    # test each alg against set
+    for i, alg in enumerate(algs):
         rmse, acc = test_alg_with_params(alg, x, y, x_train, y_train, x_val,
                                          y_val)
+        # DX, DA = test_model(alg, x, y, x_train, y_train, x_val, y_val)
+        DX, DA = test_model_cross(alg, x, y, x_train, y_train, x_val, y_val)
+        # write deltas to file
+        with open("deltas_" + str(i) + filename, 'w') as fo:
+            fo.write("\n".join([str(D) for D in DX]))
+        # create row
         row = [
             str(i),
-            # str(alg(**p_set)).replace(',', '_'),
-            str(alg(**p_set)).replace(',', ' ').replace('\n', '').replace(
-                '\t', '').replace(' ', ''),
+            str(alg).replace(',', ' ').replace('\n', '').replace('\t',
+                                                                 '').replace(
+                                                                     ' ', ' '),
             str(i),
             str(rmse[0]),
             str(rmse[1]),
@@ -197,47 +171,45 @@ def test_set(filename):
             str(acc[0]),
             str(acc[1])
         ]
-        # rmse, acc = test_all(algs, x, y, x_train, y_train, x_val, y_val)
+        # write row to file
+        with open("results_" + filename, 'a') as fo:
+            fo.write(", ".join(row) + "\n")
 
 
+# ---- decide on params -----
 def test_alg_with_params(alg, x, y, x_train, y_train, x_val, y_val):
-
+    # test alg with specific param set
     model = train(alg, x_train, y_train)
-    # P, D = _predict(model, x_val, y_val)
-
-    # DX = D
-    # DA = abs(DX)
-    # print('Dx')
-    # print('max', DX.max())
-    # print('min', DX.min())
-    # print('max abs', DA.max())
-    # print('min abs', DA.min())
-    # print('rmse', RMSE(P, Y_val))
-    # rmse =  RMSE(P, y_val)
+    # get accuracy
     scores = cross_val_score(model, x, y, cv=5, scoring=call_ac)
     acc_mean = scores.mean()
     acc_std = scores.std() * 2
     print("Accuracy: %0.2f (+/- %0.2f)" % (scores.mean(), scores.std() * 2))
+    # get RMSE
     scores = cross_val_score(model, x, y, cv=5, scoring=call_rmse)
     rmse_mean = scores.mean()
     rmse_std = scores.std() * 2
     print("rmse: %0.2f (+/- %0.2f)" % (scores.mean(), scores.std() * 2))
 
+    # return as tuples
     return (rmse_mean, rmse_std), (acc_mean, acc_std)
 
 
-def test_alg(filename, alg_name, alg, param_sets):
+def test_alg_with_param_set(filename, alg_name, alg, param_sets):
+    # test the alg with each param_set
     x, y, classes, features = readlines(filename)
     x_train, x_val, y_train, y_val = train_test_split(x, y, test_size=0.2)
+    # create blank file
     with open("results_" + filename, 'w') as fo:
         pass
-        # fo.write()
+    # test the alg against each param set
     for i, p_set in enumerate(param_sets):
+        # retrieve the rmse and acc for alg and paramset
         rmse, acc = test_alg_with_params(
             alg(**p_set), x, y, x_train, y_train, x_val, y_val)
+        # create row to be saved to file
         row = [
             str(i),
-            # str(alg(**p_set)).replace(',', '_'),
             str(alg(**p_set)).replace(',', ' ').replace('\n', '').replace(
                 '\t', '').replace(' ', ''),
             str(i),
@@ -247,6 +219,7 @@ def test_alg(filename, alg_name, alg, param_sets):
             str(acc[0]),
             str(acc[1])
         ]
+        # write row to file
         with open("results_" + filename, 'a') as fo:
             fo.write(", ".join(row) + "\n")
 
@@ -259,41 +232,46 @@ if __name__ == "__main__":
     both_sq = "squared_winequality-both.csv"
     file_names = [red_sq, red, white_sq, white, both_sq]
 
-    # linear_param_sets = []
-    # for i in range(0, 2):
-    #     for j in range(0, 2):
-    #         linear_param_sets.append({
-    #             'fit_intercept': bool(i),
-    #             'normalize': bool(j)
-    #         })
+    # Used to eval the best param sets to use.
+    # Should have used a built in scikit learn instead
+    # ---- create param sets for linear regression -----
+    linear_param_sets = []
+    for i in range(0, 2):
+        for j in range(0, 2):
+            linear_param_sets.append({
+                'fit_intercept': bool(i),
+                'normalize': bool(j)
+            })
 
-    # rand_param_sets = []
-    # crits = ['mse', 'mae']
-    # max_f = ['auto', 'sqrt', 'log2'] + [*range(5, 11, 1)]
-    # for n_ests in range(1, 30, 5):
-    #     for crit in crits:
-    #         for m_f in max_f:
-    #             for oob in range(0, 2):
-    #                 rand_param_sets.append({
-    #                     'n_jobs': -1,
-    #                     'n_estimators': int(n_ests),
-    #                     'criterion': crit,
-    #                     'max_features': m_f,
-    #                     'oob_score': bool(oob)
-    #                 })
+    # ----- create param sets for random forest -----
+    rand_param_sets = []
+    crits = ['mse', 'mae']
+    max_f = ['auto', 'sqrt', 'log2'] + [*range(5, 11, 1)]
+    for n_ests in range(1, 30, 5):
+        for crit in crits:
+            for m_f in max_f:
+                for oob in range(0, 2):
+                    rand_param_sets.append({
+                        'n_jobs': -1,
+                        'n_estimators': int(n_ests),
+                        'criterion': crit,
+                        'max_features': m_f,
+                        'oob_score': bool(oob)
+                    })
 
+    # test each param set, and save results to file
     # for fname in file_names:
-    #     test_alg(fname, "linear_regression", linear_model.LinearRegression,
+    #     test_alg_with_param_set(fname, "linear_regression", linear_model.LinearRegression,
     #              linear_param_sets)
-    #     test_alg(fname, "random_forest", RandomForestRegressor,
+    #     test_alg_with_param_set(fname, "random_forest", RandomForestRegressor,
     #              rand_param_sets)
 
-    # algs.append(RandomForestRegressor(n_estimators=20, n_jobs=-1))
-
-    # print('----red----')
-    # test_set(red)
-    print('----red_sq----')
-    test_set(red_sq)
+    # ---- Train and Test ----
+    # actually train and test model against dataset
+    print('----red----')
+    test_set(red)
+    # print('----red_sq----')
+    # test_set(red_sq)
     # print('----white----')
     # test_set(white)
     # print('----white_sq----')

@@ -112,10 +112,14 @@ def test_model(alg, X, Y, X_train, Y_train, X_val, Y_val):
 
 
 def test_model_cross(alg, X, Y, X_train, Y_train, X_val, Y_val):
-    P = cross_val_predict(alg, X_val, Y_val, cv=5, n_jobs=-1)
-    DX = P - Y_val
+    P = cross_val_predict(alg, X, Y, cv=5, n_jobs=-1)
+    DX = P - Y
     DA = abs(DX)
-    return DX, DA
+    return DX, DA, P
+
+
+def get_co(alg, X, Y):
+    return train(alg, X, Y).coef_
 
 
 def test_set(filename):
@@ -154,10 +158,17 @@ def test_set(filename):
         rmse, acc = test_alg_with_params(alg, x, y, x_train, y_train, x_val,
                                          y_val)
         # DX, DA = test_model(alg, x, y, x_train, y_train, x_val, y_val)
-        DX, DA = test_model_cross(alg, x, y, x_train, y_train, x_val, y_val)
+        DX, DA, P = test_model_cross(alg, x, y, x_train, y_train, x_val, y_val)
+        if i == 0:
+            coef = get_co(alg, x, y)
+            print(type(coef))
+            print(coef)
+            with open('coefs_' + filename, 'w') as fo:
+                fo.write(','.join(features) + '\n')
+                fo.write(','.join([str(c) for c in coef]) + '\n')
         # write deltas to file
         with open("deltas_" + str(i) + filename, 'w') as fo:
-            fo.write("\n".join([str(D) for D in DX]))
+            fo.write("\n".join([str(P) + "," + str(D) for D, P in zip(DX, P)]))
         # create row
         row = [
             str(i),
